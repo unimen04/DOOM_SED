@@ -201,6 +201,3 @@ void loop(void){
 		SPILCD_Transfer(spiDrv1, buffer);
 	}
 }
-
-
-//comentario de prueba para hacer merge
