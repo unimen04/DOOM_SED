@@ -1,3 +1,4 @@
+//si lees esto en github es que se ha hecho commit y merge correctamente
 #include <math.h>
 #include <stdlib.h>
 #include "structure.h"
