@@ -14,7 +14,9 @@
 #define FOV 60 //angulo en grados del campo de vision del jugador
 #define NUM_RAYS (FOV) //un angulo por grado
 #define FOV2 (FOV/2)
-#define D ((LCD_NUM_COLS/2)/tan(FOV2)) //distancia al plano de proyeccion
+#define FOV2RAD (FOV2*DEG2RAD)
+#define RES (LCD_NUM_COLS/NUM_RAYS) //divisor de resolucion
+#define PROYECTION_HEIGHT (LCD_NUM_ROWS*D)
 #define CENTER_Y (LCD_NUM_ROWS/2) 
 
 #define PARED 1
@@ -35,9 +37,9 @@ uint8_t colission(coords pos){
 }
 
 //dibuja un rayo en base a la distancia hasta la posicion en el que el rayo colisiona con una pared usando DDA
-ray castRay3D(float angleOffset){
+ray castRay3D(float angle){
 	coords rayStart = j1.pos; //coordenada inicial del rayo
-	coords rayDir = set_coords(cos(j1.angle+angleOffset),sin(j1.angle+angleOffset)); //direccion del rayo
+	coords rayDir = set_coords(cos(angle),sin(angle)); //direccion del rayo
 	coords unitStepSize = set_coords(sqrt(1+(rayDir.y/rayDir.x)*(rayDir.y/rayDir.x)),sqrt(1+(rayDir.x/rayDir.y)*(rayDir.x/rayDir.y))); //vector unitario del rayo
 	
 	//verifica las celdas del mapa, se inicializa en la celda inicial en la que se encuentra el jugador
