@@ -17,7 +17,8 @@
 #define FOV2RAD (FOV2*DEG2RAD)
 #define RES (LCD_NUM_COLS/NUM_RAYS) //divisor de resolucion
 #define PROYECTION_HEIGHT (LCD_NUM_ROWS*D)
-#define CENTER_Y (LCD_NUM_ROWS/2) 
+#define CENTER_Y (LCD_NUM_ROWS/2)
+#define RES_DIVIDER 2
 
 #define PARED 1
 #define ENEMIGO 2
@@ -27,6 +28,9 @@ player j1;
 
 //comprueba si la celda esta ocupada
 uint8_t colissionCell(cell checkCell){
+	if (checkCell.x >= MAP_WIDTH || checkCell.y >= MAP_HEIGHT)
+        return 1; // Fuera del mapa = colisión
+	
 	return map[checkCell.y][checkCell.x];
 }
 
@@ -47,6 +51,7 @@ ray castRay3D(float angle){
 	coords rayLength;
 	int8_t stepx;
 	int8_t stepy;
+	ray rayEnd;
 	
 	if(rayDir.x <0){
 		stepx=-1;
@@ -70,25 +75,27 @@ ray castRay3D(float angle){
 		//avanzar el rayo
 		if(rayLength.x < rayLength.y){
 			mapCheck.x+=stepx;
-			distance = rayLength.x;
 			rayLength.x+=unitStepSize.x;
+			distance = rayLength.x;
 		}else{
 			mapCheck.y+=stepy;
-			distance = rayLength.y;
 			rayLength.y+=unitStepSize.y;
+			distance = rayLength.y;
 		}
 		//comprobar si se ha encontrado la casilla
-		tileFound = colissionCell(mapCheck);
+		tileFound =colissionCell(mapCheck);
+		rayEnd.pos.x = rayStart.x + rayDir.x*distance;
+		rayEnd.pos.y = rayStart.y + rayDir.y*distance;
 	}
-	ray ray1;
-	ray1.pos=set_coords(0,0);
-	ray1.distance = distance;
-	ray1.colision = tileFound;
+	rayEnd.pos=set_coords(0,0);
+	rayEnd.distance = distance;
+	rayEnd.colission = tileFound;
 	if(tileFound){
-		ray1.pos.x = rayStart.x + rayDir.x*distance;
-		ray1.pos.y = rayStart.y + rayDir.y*distance;
+		rayEnd.pos.x = rayStart.x + rayDir.x*distance;
+		rayEnd.pos.y = rayStart.y + rayDir.y*distance;
 	}
-	return ray1;
+	//__breakpoint(255);
+	return rayEnd;
 }
 
 //----------------------------------------------------------2D------------------------------------------------------
@@ -104,57 +111,75 @@ void draw_map2D(){
 	}
 }
 
-void draw_player2D(){
+void draw2D(){
+	draw_map2D();
+	
 	posLCD playerLCD = coords2LCD(j1.pos);
-	Buffer_SetPixel(buffer,posLCD.x,posLCD.y);
+	Buffer_SetPixel(buffer,playerLCD.x,playerLCD.y);
 	
-	//un rayo
-	ray actualRay = castRay3D(0);
-	posLCD rayLCD = coords2LCD(actualRay.pos);
-	Buffer_DrawLine(buffer,playerLCD.x,playerLCD.y,rayLCD.x,rayLCD.y);
-	
-	//mazo rayos
-	/*
 	for(uint8_t i = 0; i<NUM_RAYS; i++){
-		uint8_t degOffset = -FOV2 + i;
-		float radianOffset = offset * DEG2RAD;
+		int8_t degOffset = -FOV2 + i;
+		float radianOffset = degOffset * DEG2RAD;
 		ray actualRay = castRay3D(radianOffset);
-		
-		posLCD rayLCD = coords2LCD(actualRay.pos);
-		Buffer_DrawLine(buffer,playerLCD.x,playerLCD.y,rayLCD.x,rayLCD.y);
-	}*/
+	}
 }
---------------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------------------------
 
 
 void draw3D(){
-	
+	const float d = (LCD_NUM_COLS/2)/tan(FOV2RAD);
 	//probar 2D primero
-	for(uint8_t i = 0; i<NUM_RAYS; i++){
+	for (uint8_t i = 0; i < NUM_RAYS; i++){
+    // Calcula el ángulo para este rayo
+    float camera_x = 2 * (double)i / NUM_RAYS - 1;
+    float ray_angle = j1.angle + atan(camera_x * tan((FOV/2.0)*DEG2RAD));
+    
+    ray actualRay = castRay3D(ray_angle);
+    
+    // Calcula la altura de la pared proyectada
+    uint8_t wallHeight = (uint8_t)((CELL_SIZE * d) / actualRay.distance);
+    if(wallHeight > LCD_NUM_ROWS)
+        wallHeight = LCD_NUM_ROWS;
+    
+    uint8_t centerY = LCD_NUM_ROWS / 2;
+    uint8_t startY = centerY - wallHeight / 2;
+    uint8_t endY   = centerY + wallHeight / 2;
+    if(endY >= LCD_NUM_ROWS) endY = LCD_NUM_ROWS - 1;
+    
+    // Calcula la posición horizontal en la pantalla
+    uint8_t screenX = i * RES_DIVIDER;
+    
+    // Dibuja la columna de la pared
+    Buffer_DrawLineV(buffer, screenX, startY, endY);
+    
+    // Opcional: Rellenar columnas intermedias para evitar huecos
+   for (uint8_t j = 1; j < RES_DIVIDER; j++){
+        Buffer_DrawLineV(buffer, screenX+j, startY, endY);
+    }
+	}
+	/*for(uint8_t i = 0; i<NUM_RAYS; i++){
 		uint8_t degOffset = -FOV2 + i;
-		float radianOffset = offset * DEG2RAD;
+		float radianOffset = degOffset * DEG2RAD;
 		ray actualRay = castRay3D(radianOffset);
 		
+		uint8_t wallHeight;
+		uint8_t startY;
+		uint8_t endY;
+		uint8_t screenX;
 		
-		switch(actualRay.colision){
+		switch(actualRay.colission){
 			case PARED:
-				//dibuja una pared
-				uint8_t wallHeight = (LCD_NUM_ROWS * d)/actualRay.distance;
-				if(wallHeight > LCD_NUM_ROWS) wallHeight=LCD_NUM_ROWS;
-				uint8_t startY = CENTER_Y - wallHeight/2;
-				uint8_t endY = CENTER_Y + wallHeight/2;
-				if(endY > LCD_NUM_ROWS) endY = LCD_NUM_ROWS;
-				uint8_t screenX = (i/NUM_RAYS)*LCD_NUM_COLS;
-				Buffer_DrawLineV(buffer,screenX,startY,endY);
+			wallHeight = (LCD_NUM_ROWS * d)/actualRay.distance; if(wallHeight > LCD_NUM_ROWS) wallHeight=LCD_NUM_ROWS;
+			startY = CENTER_Y - wallHeight/2;
+			endY = CENTER_Y + wallHeight/2; if(endY > LCD_NUM_ROWS) endY = LCD_NUM_ROWS;
+			screenX = i*RES;
+			Buffer_DrawLineV(buffer,screenX,startY,endY);
 			break;
 			
-			csae ENEMIGO:
-				//codigo para renderizar a un enemigo
+			case ENEMIGO:
 			break;
-				
 		}
-		
-	}
+	}*/
 }
 
 void move_player(){
@@ -197,7 +222,6 @@ void loop(void){
 		move_player();
 		
 		Buffer_Reset(buffer);
-		draw_map2D();
 		draw3D();
 		
 		SPILCD_Transfer(spiDrv1, buffer);
