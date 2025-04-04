@@ -1,4 +1,3 @@
-//si lees esto en github es que se ha hecho commit y merge correctamente
 #include <math.h>
 #include <stdlib.h>
 #include "structure.h"
@@ -10,12 +9,12 @@
 
 #define PI 3.14159265359
 #define PI2 (2*PI)
-#define DEG2RAD (PI/180)
+#define DEG2RAD (PI/180)		//pasa de grados a radianes
 
-#define FOV 60 //angulo en grados del campo de vision del jugador
-#define NUM_RAYS (FOV) //un angulo por grado
+#define FOV 60					//angulo en grados del campo de vision del jugador
+#define NUM_RAYS (FOV)			//un rayo por grado
 #define FOV2 (FOV/2)
-#define FOV2RAD (FOV2*DEG2RAD)
+#define FOV2RAD (FOV2*DEG2RAD)	//angulo en radianes del campo de vision del jugador
 #define RES (LCD_NUM_COLS/NUM_RAYS) //divisor de resolucion
 #define PROYECTION_HEIGHT (LCD_NUM_ROWS*D)
 #define CENTER_Y (LCD_NUM_ROWS/2)
@@ -27,7 +26,9 @@
 uint8_t level= 0;
 player j1;
 
-//comprueba si la celda esta ocupada
+//---------------------------------------------------------- COLISIONES --------------------------------------------------
+
+//toma el valor de la celda (1 o 0). Es decir, si es una pared o no
 uint8_t colissionCell(cell checkCell){
 	if (checkCell.x >= MAP_WIDTH || checkCell.y >= MAP_HEIGHT)
         return 1; // Fuera del mapa = colisión
@@ -36,10 +37,14 @@ uint8_t colissionCell(cell checkCell){
 }
 
 //colision del jugador
+//sabiendo las coordenadas del jugador, se obtiene la celda en la que se encuentra y se comprueba si es una pared o no
+//si es una pared, la función collissionCell devolverá 1, si no devuelve 0
 uint8_t colission(coords pos){
 	cell cellCheck = obtainCell(pos);
 	return colissionCell(cellCheck);
 }
+
+//---------------------------------------------------------- RAYCASTING --------------------------------------------------
 
 //dibuja un rayo en base a la distancia hasta la posicion en el que el rayo colisiona con una pared usando DDA
 ray castRay3D(float angle){
@@ -99,7 +104,7 @@ ray castRay3D(float angle){
 	return rayEnd;
 }
 
-//----------------------------------------------------------2D------------------------------------------------------
+//---------------------------------------------------------- 2D ------------------------------------------------------
 //estas funciones dejan de ser utiles en 3D
 void draw_map2D(){
 	for(uint8_t i=0;i<MAP_HEIGHT;i++){
@@ -124,8 +129,8 @@ void draw2D(){
 		ray actualRay = castRay3D(radianOffset);
 	}
 }
-//--------------------------------------------------------------------------------------------------------------------
 
+//---------------------------------------------------------- 3D ------------------------------------------------------
 
 void draw3D(){
 	const float d = (LCD_NUM_COLS/2)/tan(FOV2RAD);
@@ -183,6 +188,9 @@ void draw3D(){
 	}*/
 }
 
+//---------------------------------------------------------- MOVIMIENTO JUGADOR --------------------------------------------------
+
+//se utiliza el joystick para mover al jugador.
 void move_player(){
 	coords newPos = j1.pos;
 	
@@ -216,6 +224,7 @@ void loop(void){
 		interrupt=0;
 		
 		//ADC, ajustar el valor entre 1 y 2pi
+		//giro de la visión del jugador
 		read_pot();
 		j1.angle=(pot1_read*PI2)/MAX_POT_VALUE;
 		

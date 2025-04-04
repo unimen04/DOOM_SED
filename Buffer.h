@@ -24,14 +24,19 @@ void Buffer_DrawLine(uint8_t* buffer, uint8_t x1, uint8_t y1, uint8_t x2, uint8_
 // Draw rectangle in buffer at (x,y) with size (width,height)
 void Buffer_DrawRect(uint8_t* buffer, uint8_t x, uint8_t y, uint8_t width, uint8_t height);
 
+// Draw filled rectangle in buffer at (x,y) with size (width,height)
 void Buffer_DrawBRect(uint8_t* buffer, uint8_t x, uint8_t y, uint8_t width, uint8_t height);
 
+// Draw digit in buffer at (x,y)
 void Buffer_DrawDigit(uint8_t* buffer, uint8_t digito, uint8_t x, uint8_t y);
 
+// Draw number in buffer at (x,y)
 void Buffer_DrawNum(uint8_t* buffer, int num, uint8_t x, uint8_t y);
 
+// Draw letter in buffer at (x,y)
 void Buffer_DrawLetter(uint8_t* buffer, char letter, uint8_t x, uint8_t y);
 
+// Draw string in buffer at (x,y)
 void Buffer_DrawWord(uint8_t* buffer, char *texto, uint8_t x, uint8_t y);
 
 #endif /* BUFFER_H_ */
