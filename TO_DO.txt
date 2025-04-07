@@ -1,0 +1,19 @@
+Cosas a implementar
+    • Terminar el raycaster (me cago en la puta)
+    • Ia de los enemigos (te toca a ti!!!!)
+    • menús
+    • interfaces
+    • sprites
+    • dibujar los sprites
+    • generar enemigos
+    • disparar
+    • paquetes de salud y/o munición
+    • varios niveles
+    • incluso sonido (q estaría to guapo)
+    • si tienes más ideas puedes sugerir
+    • trabajar un poco…
+    • tal y cual
+    - solucionar el efecto ojo de pez
+    - cambiar movimiento joystick: que palante sea donde mire el potenciometro
+    - barra de vida: leds
+    - 
