@@ -20,9 +20,7 @@ uint32_t pot2_read=0;
 //Timer
 uint8_t interrupt=0;
 
-//---------------------------------------------------------------------- JOYSTICK ----------------------------------
-
-//inicializa el pin del joystick como GPIO de entrada con resistencia de pulldown
+//-----------------------Joysticks----------------------------------------
 void initPin_JOY(uint32_t port_number, uint32_t pin_number)
 {
 	// configura el pin como GPIO de entrada con resistencia de pulldown
@@ -31,7 +29,6 @@ void initPin_JOY(uint32_t port_number, uint32_t pin_number)
 	              PIN_PINMODE_PULLDOWN, PIN_PINMODE_NORMAL);
 }
 
-//lee el estado del joystick y guarda el resultado en las variables correspondientes
 void read_joy(){
 	if(GPIO_PinRead(PORT_JOY, PIN_JOY_CENTER)){
 		center_pressed=1;
@@ -47,9 +44,7 @@ void read_joy(){
 			
 }
 
-//---------------------------------------------------------------------- TIMER ----------------------------------
-
-//inicializa el timer con un valor maximo de cuenta maxCount, el cual se usara para generar la interrupcion
+//-----------------------------Timer--------------------------------------
 void init_timer(int maxCount){
 	LPC_TIM0->MCR |= 1 << 0; 	 //genera interrupciones
 	LPC_TIM0->MCR |= 1 << 1; 	 //reinicia el contador cuando llegue a su valor maximo
@@ -59,17 +54,14 @@ void init_timer(int maxCount){
 	LPC_TIM0->TCR |= 1 << 0;	 //activa el contador	
 }
 
-//parar el timer
+
 void stop_timer(void){
 }
 
-//reanudar el timer
 void resume_timer(void){
 }
 
-//---------------------------------------------------------------------- ADC ----------------------------------
-
-//inicializa el ADC y los pines de los potenciometros como GPIO de entrada con resistencia de pulldown
+//-----------------------------ADC----------------------------------------
 void init_ADC(void){
 	//activa el ADC
 	LPC_SC->PCONP |= (1 << 12);
@@ -91,7 +83,6 @@ void init_ADC(void){
 
 }
 
-//lee el valor del ADC de un canal, si canal_previo es diferente de 0, se detiene la conversion del canal anterior
 uint32_t read_ADC(uint8_t canal, uint8_t canal_previo){
 	uint32_t valor;
 	if(canal_previo)
@@ -103,13 +94,17 @@ uint32_t read_ADC(uint8_t canal, uint8_t canal_previo){
 	return valor;
 }
 
-//lee el valor del potenciometro 1 y 2 (en el DOOM solo se usa el 1)
-void read_pot(void){
-	pot1_read=read_ADC(CANAL1,0);
+//devuelve 1 si ha modificado el valor del potenciometro
+uint8_t read_pot(void){
+	uint32_t prev_potValue=pot1_read;
+	uint32_t newPotValue = read_ADC(CANAL1,0);
+	if(abs(prev_potValue-newPotValue)<DIFF){
+		pot1_read=newPotValue;
+		return 1;
+	}
+	return 0;
 	//pot2_read=read_ADC(CANAL2,CANAL1); solo se usa un potenciometro
 }
-
-//---------------------------------------------------------------------- START ALL ----------------------------------
 
 void start(void){
 

@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdlib.h>
+#include "structure.h"
 #include "LPC1768_func.h"
 #include "DOOM.h"
 #include "Buffer.h"
@@ -8,12 +9,12 @@
 
 #define PI 3.14159265359
 #define PI2 (2*PI)
-#define DEG2RAD (PI/180)		//pasa de grados a radianes
+#define DEG2RAD (PI/180)
 
-#define FOV 60					//angulo en grados del campo de vision del jugador
-#define NUM_RAYS (FOV)			//un rayo por grado
+#define FOV 60 //angulo en grados del campo de vision del jugador
+#define NUM_RAYS (FOV) //un angulo por grado
 #define FOV2 (FOV/2)
-#define FOV2RAD (FOV2*DEG2RAD)	//angulo en radianes del campo de vision del jugador
+#define FOV2RAD (FOV2*DEG2RAD)
 #define RES (LCD_NUM_COLS/NUM_RAYS) //divisor de resolucion
 #define PROYECTION_HEIGHT (LCD_NUM_ROWS*D)
 #define CENTER_Y (LCD_NUM_ROWS/2)
@@ -25,25 +26,19 @@
 uint8_t level= 0;
 player j1;
 
-//---------------------------------------------------------- COLISIONES --------------------------------------------------
-
-//toma el valor de la celda (1 o 0). Es decir, si es una pared o no
+//comprueba si la celda esta ocupada
 uint8_t colissionCell(cell checkCell){
 	if (checkCell.x >= MAP_WIDTH || checkCell.y >= MAP_HEIGHT)
-        return 1; // Fuera del mapa = colisi贸n
+        return 1; // Fuera del mapa = colisi髇
 	
 	return map[checkCell.y][checkCell.x];
 }
 
 //colision del jugador
-//sabiendo las coordenadas del jugador, se obtiene la celda en la que se encuentra y se comprueba si es una pared o no
-//si es una pared, la funci贸n collissionCell devolver谩 1, si no devuelve 0
 uint8_t colission(coords pos){
 	cell cellCheck = obtainCell(pos);
 	return colissionCell(cellCheck);
 }
-
-//---------------------------------------------------------- RAYCASTING --------------------------------------------------
 
 //dibuja un rayo en base a la distancia hasta la posicion en el que el rayo colisiona con una pared usando DDA
 ray castRay3D(float angle){
@@ -89,11 +84,10 @@ ray castRay3D(float angle){
 		}
 		//comprobar si se ha encontrado la casilla
 		tileFound =colissionCell(mapCheck);
-		rayEnd.pos.x = rayStart.x + rayDir.x*distance;
-		rayEnd.pos.y = rayStart.y + rayDir.y*distance;
 	}
+	if(distance < 1) distance = 1;
 	rayEnd.pos=set_coords(0,0);
-	rayEnd.distance = distance;
+	rayEnd.distance = distance * cos(angle-j1.angle);
 	rayEnd.colission = tileFound;
 	if(tileFound){
 		rayEnd.pos.x = rayStart.x + rayDir.x*distance;
@@ -103,55 +97,27 @@ ray castRay3D(float angle){
 	return rayEnd;
 }
 
-//---------------------------------------------------------- 2D ------------------------------------------------------
-//estas funciones dejan de ser utiles en 3D
-void draw_map2D(){
-	for(uint8_t i=0;i<MAP_HEIGHT;i++){
-		uint8_t y=i*CELL_SIZE;
-		for(uint8_t j=0;j<MAP_WIDTH;j++)
-			if(map[i][j]==1){
-				uint8_t x= j*CELL_SIZE;
-				Buffer_DrawRect(buffer,x,y,CELL_SIZE,CELL_SIZE);
-		}
-	}
-}
-
-void draw2D(){
-	draw_map2D();
-	
-	posLCD playerLCD = coords2LCD(j1.pos);
-	Buffer_SetPixel(buffer,playerLCD.x,playerLCD.y);
-	
-	for(uint8_t i = 0; i<NUM_RAYS; i++){
-		int8_t degOffset = -FOV2 + i;
-		float radianOffset = degOffset * DEG2RAD;
-		ray actualRay = castRay3D(radianOffset);
-	}
-}
-
-//---------------------------------------------------------- 3D ------------------------------------------------------
-
 void draw3D(){
-	const float d = (LCD_NUM_COLS/2)/tan(FOV2RAD);
-	//probar 2D primero
+	const float d = (LCD_NUM_ROWS/2)/tan(FOV2RAD);
+	//reset del buffer
+	Buffer_Reset(buffer);
+	
+	//casteo de rayos
 	for (uint8_t i = 0; i < NUM_RAYS; i++){
-    // Calcula el 谩ngulo para este rayo
+    // Calcula el 醤gulo para este rayo
     float camera_x = 2 * (double)i / NUM_RAYS - 1;
     float ray_angle = j1.angle + atan(camera_x * tan((FOV/2.0)*DEG2RAD));
     
     ray actualRay = castRay3D(ray_angle);
     
     // Calcula la altura de la pared proyectada
-    uint8_t wallHeight = (uint8_t)((CELL_SIZE * d) / actualRay.distance);
-    if(wallHeight > LCD_NUM_ROWS)
-        wallHeight = LCD_NUM_ROWS;
+    uint8_t wallHeight = (uint8_t)((CELL_SIZE * d) / actualRay.distance); if(wallHeight > LCD_NUM_ROWS) wallHeight = LCD_NUM_ROWS; 
     
     uint8_t centerY = LCD_NUM_ROWS / 2;
     uint8_t startY = centerY - wallHeight / 2;
     uint8_t endY   = centerY + wallHeight / 2;
-    if(endY >= LCD_NUM_ROWS) endY = LCD_NUM_ROWS - 1;
     
-    // Calcula la posici贸n horizontal en la pantalla
+    // Calcula la posici髇 horizontal en la pantalla
     uint8_t screenX = i * RES_DIVIDER;
     
     // Dibuja la columna de la pared
@@ -161,50 +127,31 @@ void draw3D(){
    for (uint8_t j = 1; j < RES_DIVIDER; j++){
         Buffer_DrawLineV(buffer, screenX+j, startY, endY);
     }
+	 __breakpoint(255);
 	}
-	/*for(uint8_t i = 0; i<NUM_RAYS; i++){
-		uint8_t degOffset = -FOV2 + i;
-		float radianOffset = degOffset * DEG2RAD;
-		ray actualRay = castRay3D(radianOffset);
-		
-		uint8_t wallHeight;
-		uint8_t startY;
-		uint8_t endY;
-		uint8_t screenX;
-		
-		switch(actualRay.colission){
-			case PARED:
-			wallHeight = (LCD_NUM_ROWS * d)/actualRay.distance; if(wallHeight > LCD_NUM_ROWS) wallHeight=LCD_NUM_ROWS;
-			startY = CENTER_Y - wallHeight/2;
-			endY = CENTER_Y + wallHeight/2; if(endY > LCD_NUM_ROWS) endY = LCD_NUM_ROWS;
-			screenX = i*RES;
-			Buffer_DrawLineV(buffer,screenX,startY,endY);
-			break;
-			
-			case ENEMIGO:
-			break;
-		}
-	}*/
 }
 
-//---------------------------------------------------------- MOVIMIENTO JUGADOR --------------------------------------------------
-
-//se utiliza el joystick para mover al jugador.
 void move_player(){
 	coords newPos = j1.pos;
+	coords pDir = set_coords(cos(j1.angle),sin(j1.angle));
+	coords pDir90 = set_coords(-pDir.y,pDir.x); // = set_coords(cos(j1.angle+PIHALPH),sin(j1.angle+PIHALPH))
 	
 	if(up_pressed){
 		up_pressed=0;
-		newPos.y-=PLAYER_SPEED;
+		newPos.x+=PLAYER_SPEED*pDir.x;
+		newPos.y+=PLAYER_SPEED*pDir.y;
 	}else if(down_pressed){
 		down_pressed=0;
-		newPos.y+=PLAYER_SPEED;
+		newPos.x-=PLAYER_SPEED*pDir.x;
+		newPos.y-=PLAYER_SPEED*pDir.y;
 	}else if(right_pressed){
 		right_pressed=0;
-		newPos.x+=PLAYER_SPEED;
+		newPos.x+=PLAYER_SPEED*pDir90.x;
+		newPos.y+=PLAYER_SPEED*pDir90.y;
 	}else if(left_pressed){
 		left_pressed=0;
-		newPos.x-=PLAYER_SPEED;
+		newPos.x-=PLAYER_SPEED*pDir90.x;
+		newPos.y-=PLAYER_SPEED*pDir90.y;
 	}
 	
 	//solo se actualiza la posicion si no ha habido colision
@@ -213,7 +160,7 @@ void move_player(){
 }
 
 void init_game(void){
-	j1=set_player(MAP_WIDTH/2,MAP_HEIGHT/2);
+	j1=set_player(29,2);
 }
 
 void loop(void){
@@ -223,14 +170,12 @@ void loop(void){
 		interrupt=0;
 		
 		//ADC, ajustar el valor entre 1 y 2pi
-		//giro de la visi贸n del jugador
-		read_pot();
-		j1.angle=(pot1_read*PI2)/MAX_POT_VALUE;
+		if(read_pot())
+			j1.angle=(pot1_read*PI2)/MAX_POT_VALUE;
 		
 		//mover la posicion del jugador
 		move_player();
 		
-		Buffer_Reset(buffer);
 		draw3D();
 		
 		SPILCD_Transfer(spiDrv1, buffer);

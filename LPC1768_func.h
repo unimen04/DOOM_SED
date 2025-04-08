@@ -13,7 +13,8 @@
 #define POT2 31
 #define CANAL1 4
 #define CANAL2 5
-#define POR_MAX_VALUE 4095 //valor maximo del potenciometro
+#define MAX_POT_VALUE 4095 //valor maximo del potenciometro
+#define DIFF 100 //variacion minima para que el potenciometro cambie de valor
 
 #define SBIT_BURST      16u
 #define SBIT_START      24u
@@ -63,7 +64,7 @@ void stop_timer(void);
 
 void resume_timer(void);
 
-void read_pot(void);
+uint8_t read_pot(void);
 
 void start(void);
 
