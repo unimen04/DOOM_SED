@@ -45,6 +45,11 @@ typedef struct{
 	float angle;
 } player;
 
+typedef struct{
+	coords pos;
+	uint8_t health;
+	float angle; //igual no es necesario xq siempre te va a mirar a ti
+} enemy;
 
 coords set_coords(float x, float y);
 

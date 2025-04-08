@@ -1,6 +1,5 @@
 #include <math.h>
 #include <stdlib.h>
-#include "structure.h"
 #include "LPC1768_func.h"
 #include "DOOM.h"
 #include "Buffer.h"

@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "structure.h": "c",
+        "lpc1768_func.h": "c"
+    }
+}

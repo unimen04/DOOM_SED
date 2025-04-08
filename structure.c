@@ -38,6 +38,14 @@ player set_player(float x, float y){
 	return j;
 }
 
+player set_enemy(float x, float y){
+	player e;
+	e.pos = set_coords(x,y);
+	e.health=100;
+	e.angle=0;
+	return e;
+}
+
 //INUTIL EN 3D
 //convierte las coordenadas del jugador en el mapa a coordenadas de la pantalla LCD
 //la función round devuelve un tipo double, por lo que se redondea a un entero uint8_t
