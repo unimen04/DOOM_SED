@@ -44,6 +44,22 @@ void read_joy(){
 			
 }
 
+//-----------------------LEDS---------------------------------------------
+void initPin_LED(uint32_t port_number, uint32_t pin_number)
+{
+	// configura el pin como GPIO de salida con resistencia de pulldown
+	GPIO_SetDir(port_number, pin_number, GPIO_DIR_OUTPUT);
+	PIN_Configure(port_number, pin_number, PIN_FUNC_0,
+	              PIN_PINMODE_PULLDOWN, PIN_PINMODE_NORMAL);
+}
+
+void display_leds(uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4){
+	GPIO_PinWrite(PORT_LED, PIN_LED1, led1);
+	GPIO_PinWrite(PORT_LED, PIN_LED2, led2);
+	GPIO_PinWrite(PORT_LED, PIN_LED3, led3);
+	GPIO_PinWrite(PORT_LED, PIN_LED4, led4);
+}
+
 //-----------------------------Timer--------------------------------------
 void init_timer(int maxCount){
 	LPC_TIM0->MCR |= 1 << 0; 	 //genera interrupciones
@@ -89,13 +105,21 @@ uint32_t read_ADC(uint8_t canal, uint8_t canal_previo){
 		LPC_ADC->ADCR &= ~(0x1F << canal_previo);
 	LPC_ADC->ADCR |= (0x1 << canal); 
 	LPC_ADC->ADCR |= 0x001<<SBIT_START;            		// Start ADC conversion
-	while((LPC_ADC->ADGDR & (1UL<<(SBIT_DONE)))== 0);	// Wait till conversion completes 
+	while((LPC_ADC->ADGDR & (1UL<<(SBIT_DONE)))== 0)
+		;	// Wait till conversion completes 
     valor = (LPC_ADC->ADGDR >> SBIT_RESULT) & 0xfff;    // Seleccionar los bits del resultado
 	return valor;
 }
 
-void read_pot(void){
-	pot1_read=read_ADC(CANAL1,0);
+//devuelve 1 si ha modificado el valor del potenciometro
+uint8_t read_pot(void){
+	uint32_t prev_potValue=pot1_read;
+	uint32_t newPotValue = read_ADC(CANAL1,0);
+	if(prev_potValue-newPotValue>DIFF){
+		pot1_read=newPotValue;
+		return 1;
+	}
+	return 0;
 	//pot2_read=read_ADC(CANAL2,CANAL1); solo se usa un potenciometro
 }
 
@@ -125,4 +149,10 @@ void start(void){
 	initPin_JOY(PORT_JOY, PIN_JOY_DOWN);
 	initPin_JOY(PORT_JOY, PIN_JOY_RIGHT);
 	initPin_JOY(PORT_JOY, PIN_JOY_LEFT);
+
+	//inicializa los leds
+	initPin_LED(PORT_LED, PIN_LED1);
+	initPin_LED(PORT_LED, PIN_LED2);
+	initPin_LED(PORT_LED, PIN_LED3);
+	initPin_LED(PORT_LED, PIN_LED4);	
 }

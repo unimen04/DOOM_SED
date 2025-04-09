@@ -13,7 +13,8 @@
 #define POT2 31
 #define CANAL1 4
 #define CANAL2 5
-#define POR_MAX_VALUE 4095 //valor maximo del potenciometro
+#define MAX_POT_VALUE 4095 //valor maximo del potenciometro
+#define DIFF 60 //variacion minima para que el potenciometro cambie de valor
 
 #define SBIT_BURST      16u
 #define SBIT_START      24u
@@ -34,11 +35,20 @@
 #define PIN_JOY_RIGHT 24
 #define PIN_JOY_CENTER 16
 
+// LEDS
+#define PORT_LED 1
+#define PIN_LED1 18
+#define PIN_LED2 20
+#define PIN_LED3 21
+#define PIN_LED4 23
+#define ON 1
+#define OFF 0
+
+
 //LCD
 extern ARM_DRIVER_SPI Driver_SPI1;
 extern ARM_DRIVER_SPI* spiDrv1;
 
-extern uint8_t updateLcd;
 extern uint8_t buffer[LCD_MEM_SIZE];
 
 //Joysticks
@@ -63,7 +73,9 @@ void stop_timer(void);
 
 void resume_timer(void);
 
-void read_pot(void);
+uint8_t read_pot(void);
+
+void display_leds(uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4);
 
 void start(void);
 
