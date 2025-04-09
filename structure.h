@@ -8,13 +8,14 @@
 #include "SPI_LCD.h"
 
 //constantes usadas para el mapa
-#define NUM_LEVELS 1
 #define CELL_SIZE 4
 #define MAP_WIDTH (LCD_NUM_COLS/CELL_SIZE)
 #define MAP_HEIGHT (LCD_NUM_ROWS/CELL_SIZE)
 
-//velocidad del jugador en celdas/frame
-#define PLAYER_SPEED 0.2
+#define WALL 1
+#define EMPTY 0
+#define ENEMY 2
+#define PLAYER 3
 
 extern uint8_t map[MAP_HEIGHT][MAP_WIDTH];
 
@@ -34,19 +35,15 @@ typedef struct{
 	uint8_t colission;
 }ray;
 
-typedef struct{
-	coords pos;
-	uint8_t health;
-	float angle;
-} player;
-
-
 coords set_coords(float x, float y);
 
 cell obtainCell(coords p1);
 
 player set_player(float x, float y);
 
-//inutil en 3D
-posLCD coords2LCD(coords pos);
+float distance(coords p1, coords p2);
+
+uint8_t colissionCell(cell checkCell);
+
+uint8_t colission(coords pos);
 #endif

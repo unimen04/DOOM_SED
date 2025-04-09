@@ -23,22 +23,23 @@ cell obtainCell(coords p1){
 	return cellPos;
 }
 
-player set_player(float x, float y){
-	player j;
-	j.pos = set_coords(x,y);
-	j.health=100;
-	j.angle=0;
-	return j;
+//calcula la distancia entre dos puntos
+float distance(coords p1, coords p2){
+	return sqrt(pow(p1.x-p2.x,2)+pow(p1.y-p2.y,2));
 }
 
-//inutil en 3D
-posLCD coords2LCD(coords pos){
-	posLCD LCDpos;
-	double posX = round(pos.x*CELL_SIZE);
-	double posY = round(pos.y*CELL_SIZE);
-	LCDpos.x = (uint8_t)posX;
-	LCDpos.y = (uint8_t)posY;
-	return LCDpos;
+//comprueba si la celda esta ocupada
+uint8_t colissionCell(cell checkCell){
+	if (checkCell.x >= MAP_WIDTH || checkCell.y >= MAP_HEIGHT)
+        return 1; // Fuera del mapa = colisi�n
+	
+	return map[checkCell.y][checkCell.x];
+}
+
+//colision del jugador
+uint8_t colission(coords pos){
+	cell cellCheck = obtainCell(pos);
+	return colissionCell(cellCheck);
 }
 
 

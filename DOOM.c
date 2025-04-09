@@ -29,7 +29,7 @@ player j1;
 //comprueba si la celda esta ocupada
 uint8_t colissionCell(cell checkCell){
 	if (checkCell.x >= MAP_WIDTH || checkCell.y >= MAP_HEIGHT)
-        return 1; // Fuera del mapa = colisión
+        return 1; // Fuera del mapa = colisiï¿½n
 	
 	return map[checkCell.y][checkCell.x];
 }
@@ -96,6 +96,31 @@ ray castRay3D(float angle){
 	//__breakpoint(255);
 	return rayEnd;
 }
+//---------------------------------------------------------- 2D ------------------------------------------------------
+//estas funciones dejan de ser utiles en 3D
+void draw_map2D(){
+	for(uint8_t i=0;i<MAP_HEIGHT;i++){
+		uint8_t y=i*CELL_SIZE;
+		for(uint8_t j=0;j<MAP_WIDTH;j++)
+			if(map[i][j]==1){
+				uint8_t x= j*CELL_SIZE;
+				Buffer_DrawRect(buffer,x,y,CELL_SIZE,CELL_SIZE);
+		}
+	}
+}
+
+void draw2D(){
+	draw_map2D();
+	
+	posLCD playerLCD = coords2LCD(j1.pos);
+	Buffer_SetPixel(buffer,playerLCD.x,playerLCD.y);
+	
+	for(uint8_t i = 0; i<NUM_RAYS; i++){
+		int8_t degOffset = -FOV2 + i;
+		float radianOffset = degOffset * DEG2RAD;
+		ray actualRay = castRay3D(radianOffset);
+	}
+}
 
 void draw3D(){
 	const float d = (LCD_NUM_ROWS/2)/tan(FOV2RAD);
@@ -104,7 +129,7 @@ void draw3D(){
 	
 	//casteo de rayos
 	for (uint8_t i = 0; i < NUM_RAYS; i++){
-    // Calcula el ángulo para este rayo
+    // Calcula el ï¿½ngulo para este rayo
     float camera_x = 2 * (double)i / NUM_RAYS - 1;
     float ray_angle = j1.angle + atan(camera_x * tan((FOV/2.0)*DEG2RAD));
     
@@ -117,7 +142,7 @@ void draw3D(){
     uint8_t startY = centerY - wallHeight / 2;
     uint8_t endY   = centerY + wallHeight / 2;
     
-    // Calcula la posición horizontal en la pantalla
+    // Calcula la posiciï¿½n horizontal en la pantalla
     uint8_t screenX = i * RES_DIVIDER;
     
     // Dibuja la columna de la pared
@@ -176,7 +201,7 @@ void loop(void){
 		//mover la posicion del jugador
 		move_player();
 		
-		draw3D();
+		draw2D();
 		
 		SPILCD_Transfer(spiDrv1, buffer);
 	}
