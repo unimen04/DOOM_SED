@@ -21,10 +21,14 @@
 #define CENTER_Y (LCD_NUM_ROWS/2)
 #define RES_DIVIDER 2
 
+/*
 #define PARED 1
 #define ENEMIGO 2
-
+esto me ha dicho jorge que no sirve!!!
+*/
 float d; //distancia entre el jugador y la pantalla, se calcula en base a la altura de la pantalla y el angulo de vision
+
+//---------------------------------------------------------- INICIAR JUEGO ----------------------------------------------------------
 
 //inicializa el juego, se inicializan las variables y se asignan los valores iniciales a las entidades
 void init_game(void){
@@ -33,6 +37,7 @@ void init_game(void){
 	//inicializa la semilla de generacion de numeros aleatorios
 	srand(time(NULL));
 
+	//recorre el mapa y coloca al jugador y los enemigos
 	uint8_t actualEntity=0;
 	for(uint8_t i=0;i<MAP_HEIGHT;i++)
 		for(uint8_t j=0;j<MAP_WIDTH;j++)
@@ -46,8 +51,10 @@ void init_game(void){
 					actualEntity++;
 				break;
 			}
-
 }
+
+
+//---------------------------------------------------------- RAYCASTING ----------------------------------------------------------
 
 //dibuja un rayo en base a la distancia hasta la posicion en el que el rayo colisiona con una pared usando DDA
 ray castRay3D(float angle){
@@ -106,6 +113,10 @@ ray castRay3D(float angle){
 	return rayEnd;
 }
 
+//---------------------------------------------------------- PAREDES ----------------------------------------------------------
+
+//dibuja una fila vertical en base a la distancia hasta la posicion en la que el rayo colisiona con una pared
+//con todos los rayos del raycasting se crean las paredes del juego
 void draw_wall(uint8_t rayNum, ray actualRay){
 	// Calcula la altura de la pared proyectada
 	uint8_t wallHeight = (uint8_t)((CELL_SIZE * d) / actualRay.distance); if(wallHeight > LCD_NUM_ROWS) wallHeight = LCD_NUM_ROWS; 
@@ -125,13 +136,16 @@ void draw_wall(uint8_t rayNum, ray actualRay){
 		Buffer_DrawLineV(buffer, screenX+j, startY, endY);
 }
 
+//---------------------------------------------------------- 3D ----------------------------------------------------------
+
+//dibuja el mapa en 3d
 void draw3D(){
 	//reset del buffer
 	Buffer_Reset(buffer);
 	
 	//casteo de rayos
 	for (uint8_t i = 0; i < NUM_RAYS; i++){
-    // Calcula el �ngulo para este rayo
+    // Calcula el angulo para este rayo
 
 		float camera_x = 2 * (double)i / NUM_RAYS - 1;
 		float ray_angle = j1.angle + atan(camera_x * tan((FOV/2.0)*DEG2RAD));

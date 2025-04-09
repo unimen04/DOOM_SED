@@ -16,6 +16,7 @@
 #define EMPTY 0
 #define ENEMY 2
 #define PLAYER 3
+#define HEALTHKIT 4
 
 extern uint8_t map[MAP_HEIGHT][MAP_WIDTH];
 

@@ -1,10 +1,12 @@
 #include "entity.h"
+#include "structure.h"
 
 entity entities[MAX_ENTITIES];
 player j1;
 
-//--------------------Funciones de jugador--------------------//
+//---------------------------------------------------------- JUGADOR ----------------------------------------------------------
 
+//inicializa el jugador en la posicion x,y y con 100 de vida
 player set_player(float x, float y){
 	player j;
 	j.pos = set_coords(x,y);
@@ -13,6 +15,8 @@ player set_player(float x, float y){
 	return j;
 }
 
+//actualiza la posicion del jugador en base a la entrada del joystick
+//el jugador se mueve en la direccion de la mirada (el angulo cambia con el potenciómetro)
 void move_player(){
 	coords newPos = j1.pos;
 	coords pDir = set_coords(cos(j1.angle),sin(j1.angle));
@@ -41,8 +45,8 @@ void move_player(){
 		j1.pos=newPos;
 }
 
+//se muestra la salud del jugador en los 4 leds
 void display_health(){
-    // Implementar la lógica para mostrar la salud del jugador en los leds
     uint8_t led1 = (j1.health >= 25) ? ON : OFF;
     uint8_t led2 = (j1.health >= 50) ? ON : OFF;
     uint8_t led3 = (j1.health >= 75) ? ON : OFF;
@@ -50,6 +54,7 @@ void display_health(){
     display_leds(led1, led2, led3, led4);
 }
 
+//actualizacion del estado del jugador
 void update_player(void){
 
     display_health(); // Actualiza la visualización de salud
@@ -61,8 +66,12 @@ void update_player(void){
     move_player(); // Mueve al jugador según la entrada del joystick
 }
 
-//--------------------Entidades--------------------//
 
+//---------------------------------------------------------- ENTIDADES ----------------------------------------------------------
+
+//en esta seccion se definen las funciones para crear y actualizar las entidades del juego, ya sean enemigos o healthpacks.
+
+//se define la entidad en una posicion, con 100 de vida, estado idle y el tipo de entidad que se le pase como argumento
 entity set_entity(float x, float y, entityType_t type){
     entity e;
     e.pos = set_coords(x,y);
@@ -103,14 +112,17 @@ void update_entity(entity *e){
         return; // No se actualiza si no se ha renderizado
 
     switch(e->type){
+        // SI ES UN ENEMIGO
         case ENTITY_TYPE_ENEMY:
 
+            //si su salud es 0 está muerto
             if(e->health == 0){
                 e->state = ENTITY_STATE_DEAD;
                 return;
             }
-
+            //se observa el estado del enemigo
             switch (e->state) {
+                //si está quieto y dentro del rango de detección, pasa a moverse
                 case ENTITY_STATE_IDLE:
                     if (dist < DETECTION_RADIUS){ 
                         e->state = ENTITY_STATE_MOVING;
@@ -118,7 +130,8 @@ void update_entity(entity *e){
                         idle_entity(e);
                     }
                     break;
-                
+                //si se está moviendo y el jugador está dentro del rango de ataque, pasa a atacar
+                //si el jugador está fuera del rango de ataque, pasa a idle
                 case ENTITY_STATE_MOVING:
                     if (dist < ATTACK_RADIUS) {
                         e->state = ENTITY_STATE_ATTACKING;
@@ -129,7 +142,9 @@ void update_entity(entity *e){
                     }
                     break;
                 break;
-
+                
+                //si está atacando y el jugador está fuera del rango de ataque, pasa a moverse
+                //si el jugador está dentro del rango de ataque, le quita vida al jugador
                 case ENTITY_STATE_ATTACKING:
                     if (dist > ATTACK_RADIUS) {
                         e->state = ENTITY_STATE_MOVING;
@@ -143,11 +158,16 @@ void update_entity(entity *e){
                 break;
             }
         break;
-
+        // SI ES UN HEALTHPACK
         case ENTITY_TYPE_HEALTH:
             if (dist < ATTACK_RADIUS) {
                 j1.health += HEALTH;
                 e->health = 0; // El healthpack se "consume"
+                e->state = ENTITY_STATE_DEAD; // Cambia el estado a muerto para que no se actualice más, como si fuese un enemigo muerto
+
+                if(e->state == ENTITY_STATE_DEAD){
+                    return;
+                }
             }
         break;
     }
