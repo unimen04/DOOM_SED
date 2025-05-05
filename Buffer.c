@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include "Buffer.h"
 #include "SPI_LCD.h"
+#include "structure.h"
 
 //contiene los numeros del 0 al 9
 static const uint8_t digitos[10][FONT_SIZE] ={
@@ -56,6 +57,11 @@ static const uint8_t letras [NUM_LETRAS_ABECEDARIO+1][FONT_SIZE] ={
 	{0x00, 0x00, 0x00, 0x00, 0x00} // espacio, no funciona si se escribe en ascii, pero sirve usando posicion en el array
 };
 
+void ZBuffer_Reset(uint8_t *zbuffer){
+	for(uint8_t i=0;i<LCD_NUM_COLS;i++)
+		zbuffer[i]=255; //inicializa el zbuffer a 255, el valor maximo
+}
+
 // Set all positions in buffer to zero
 void Buffer_Reset(uint8_t* buffer) {
 	for(int i=0;i<LCD_MEM_SIZE;i++)
@@ -64,13 +70,24 @@ void Buffer_Reset(uint8_t* buffer) {
 
 // Draw pixel in buffer at (x,y)
 void Buffer_SetPixel(uint8_t* buffer, uint8_t x, uint8_t y) {
-	//buscamos en que p�gina est� el pixel a dibujar
+	//buscamos en que p�gina est� el pixel a dibujar
 	uint8_t pagina= y/LCD_NUM_ROWS_PER_PAGE;
-	//ubicamos el pixel dentro de la p�gina
+	//ubicamos el pixel dentro de la p�gina
 	uint8_t bit= y%LCD_NUM_ROWS_PER_PAGE;
 	
 	//modificamos el bit dentro de la memoria
 	buffer[pagina*LCD_NUM_COLS+x] |= 1<<bit;
+}
+
+// Apaga un píxel en el buffer en la posición (x, y)
+void Buffer_ClearPixel(uint8_t* buffer, uint8_t x, uint8_t y) {
+    // Determina en qué página está el píxel
+    uint8_t pagina = y / LCD_NUM_ROWS_PER_PAGE;
+    // Determina el bit dentro de la página
+    uint8_t bit = y % LCD_NUM_ROWS_PER_PAGE;
+
+    // Apaga el bit correspondiente en la memoria del buffer
+    buffer[pagina * LCD_NUM_COLS + x] &= ~(1 << bit);
 }
 
 // Draw horizontal line in buffer from (xi,y) to (xf,y)
@@ -85,7 +102,7 @@ void Buffer_DrawLineV(uint8_t* buffer, uint8_t x, uint8_t yi, uint8_t yf) {
 		Buffer_SetPixel(buffer,x,i);
 }
 
-//dibuja lineas horizontales, si se quiere dibujar vertical u horizontal usar Buffer_DrawLineH o
+//dibuja lineas cualesquiera, si se quiere dibujar vertical u horizontal usar Buffer_DrawLineH o
 // Buffer_DrawLineH, son mas rapidas, utiliza bresenham para dibujar una linea
 void Buffer_DrawLine(uint8_t* buffer, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2){
 	uint8_t x=x1;
@@ -126,6 +143,29 @@ void Buffer_DrawBRect(uint8_t* buffer, uint8_t x, uint8_t y, uint8_t width, uint
 	Buffer_DrawLineV(buffer,x+width,y,y+height);
 }
 
+//dibuja un circulo utilizando el algoritmo de bresenham
+void Buffer_DrawCircle(uint8_t* buffer, uint8_t xc, uint8_t yc, uint8_t radius) {
+    uint8_t x = 0;
+    uint8_t y = radius;
+    uint8_t d = 3 - 2 * radius;
+
+    while (x <= y) {
+        // Dibujar líneas horizontales entre los puntos de los octantes
+        Buffer_DrawLineH(buffer, xc - x, xc + x, yc + y);
+        Buffer_DrawLineH(buffer, xc - x, xc + x, yc - y);
+        Buffer_DrawLineH(buffer, xc - y, xc + y, yc + x);
+        Buffer_DrawLineH(buffer, xc - y, xc + y, yc - x);
+
+        if (d < 0) {
+            d = d + 4 * x + 6;
+        } else {
+            d = d + 4 * (x - y) + 10;
+            y--;
+        }
+        x++;
+    }
+}
+
 //escribe un digitito en las posciones x y
 void Buffer_DrawDigit(uint8_t* buffer, uint8_t digito, uint8_t x, uint8_t y){
 	for(int i=0;i<FONT_SIZE;i++)
@@ -146,7 +186,7 @@ void Buffer_DrawNum(uint8_t* buffer, int num, uint8_t x, uint8_t y){
 		Buffer_DrawLineH(buffer,x,x+FONT_SIZE,y+FONT_SIZE/2);
 		offset+=OFFSET;
 	}
-	sprintf(numero,"%lu",num);
+	sprintf(numero,"%d",num);
 	for(char *p=numero;*p;p++){
 		uint8_t digito = *p - '0'; //conversion maligna a entero
 		Buffer_DrawDigit(buffer,digito,x+offset,y);
@@ -172,5 +212,69 @@ void Buffer_DrawWord(uint8_t* buffer, char *texto, uint8_t x, uint8_t y){
 	for(char* p=texto; *p; p++){
 		Buffer_DrawLetter(buffer, *p, x+offset, y);
 		offset+=OFFSET;
+	}
+}
+
+/* Esta función recorre un mapa de bits y utiliza Buffer_SetPixel para imprimirlos en pantalla
+*/
+void Buffer_DrawMenu(uint8_t *buffer, const uint8_t *sprite, uint8_t width, uint8_t height, uint8_t x, uint8_t y) {
+	for (uint8_t row = 0; row < height; row++) {
+		for (uint8_t col = 0; col < width; col++) {
+			uint16_t byte_index = (row * ((width + 7) / 8)) + (col / 8);
+			uint8_t bit = 7 - (col % 8);
+			if (sprite[byte_index] & (1 << bit)) {
+				Buffer_SetPixel(buffer, x + col, y + row);
+			}
+		}
+	}
+}
+
+//funcion para dibujar los sprites. Es posible que se cambie por DrawMenu si cambiamos el diseño de los sprites de la bola de fuego y del enemigo
+void Buffer_DrawSprite(uint8_t *buffer, uint8_t *zbuffer, const uint8_t *bitmap,
+	const uint8_t *mask, uint8_t width, uint8_t height,
+	uint8_t x, uint8_t y, float distance) {
+	// Calcula el tamaño del sprite escalado según la distancia
+	uint8_t scaledWidth = (float)width / distance;
+	uint8_t scaledHeight = (float)height / distance;
+	volatile uint8_t pixelSize = max(1, 1.0 / distance); // Tamaño del píxel escalado
+	uint8_t byteWidth = (width + 7) / 8;        // Ancho en bytes del bitmap
+
+	// Verifica si el sprite está completamente oculto por el z-buffer
+	//if (zbuffer[min(max(x, 0), LCD_NUM_COLS - 1)] < distance) {
+	//return;
+	//}
+
+	// Recorre el sprite escalado
+	for (volatile uint8_t ty = 0; ty < scaledHeight; ty += pixelSize) {
+		uint8_t sy = ty * distance; // Coordenada Y en el bitmap original
+
+		// Verifica si está fuera de la pantalla verticalmente
+		if (y + ty < 0 || y + ty >= LCD_NUM_ROWS) {
+			continue;
+		}
+
+		for (volatile uint8_t tx = 0; tx < scaledWidth; tx += pixelSize) {
+			uint8_t sx = tx * distance; // Coordenada X en el bitmap original
+			uint16_t byteOffset = sy * byteWidth + sx / 8;
+
+			// Verifica si está fuera de la pantalla horizontalmente
+			if (x + tx < 0 || x + tx >= LCD_NUM_COLS) {
+				continue;
+			}
+
+			// Obtiene el bit correspondiente en el bitmap y la máscara
+			bool maskPixel = mask[byteOffset] & (1 << (7 - (sx % 8)));
+			bool pixel = bitmap[byteOffset] & (1 << (7 - (sx % 8)));
+
+			// Si el píxel está visible según la máscara y el z-buffer
+			if (maskPixel && zbuffer[x + tx] >= distance) {
+				for (uint8_t ox = 0; ox < pixelSize; ox++) {
+					for (uint8_t oy = 0; oy < pixelSize; oy++) {
+						Buffer_SetPixel(buffer, x + tx + ox, y + ty + oy);
+					}
+				}
+				zbuffer[x + tx] = distance; // Actualiza el z-buffer
+			}
+		}
 	}
 }

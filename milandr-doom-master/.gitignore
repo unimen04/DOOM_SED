@@ -1,0 +1,9 @@
+Listings/
+Objects/
+RTE/
+
+JLinkLog.txt
+*.uvguix.*
+.vscode/uv4.log.lock
+.vscode/uv4.log
+.vscode/keil-assistant.log

@@ -1,26 +1,33 @@
 #include "LPC1768_func.h"
 
 //LCD
+//Puntero al driver SPI que utilizará la pantalla LCD
 ARM_DRIVER_SPI* spiDrv1 = &Driver_SPI1;
-
+//flag para indicar si hay que actualizar la pantalla
 uint8_t updateLcd=0;
+//buffer de la pantalla
 uint8_t buffer[LCD_MEM_SIZE];
 
-//Joysticks
+//JOYSTICKS
+//estados de los diferentes botones del joystick
 uint8_t center_pressed=0;
+uint8_t center_pressed_prev=0;
+uint8_t center_registered=0;
 uint8_t up_pressed=0;
 uint8_t down_pressed=0;
 uint8_t right_pressed=0;
 uint8_t left_pressed=0;
 
 //ADC
+//variables para almacenar el valor devuelto por los potenciometros
 uint32_t pot1_read=0;
 uint32_t pot2_read=0;
 
 //Timer
+//flag de interrupcion
 uint8_t interrupt=0;
 
-//-----------------------Joysticks----------------------------------------
+//---------------------------------------------------------- JOYSTICKS ----------------------------------------------------------
 void initPin_JOY(uint32_t port_number, uint32_t pin_number)
 {
 	// configura el pin como GPIO de entrada con resistencia de pulldown
@@ -29,7 +36,18 @@ void initPin_JOY(uint32_t port_number, uint32_t pin_number)
 	              PIN_PINMODE_PULLDOWN, PIN_PINMODE_NORMAL);
 }
 
+//lee el centro del joystick y lo registra si se ha presionado
+void read_center(){
+	center_pressed_prev=center_pressed;
+	center_pressed=GPIO_PinRead(PORT_JOY, PIN_JOY_CENTER);
+	if(center_pressed && !center_pressed_prev)
+		center_registered=1;
+}
+
+//lee todos los joysticks
 void read_joy(){
+	read_center();
+
 	if(GPIO_PinRead(PORT_JOY, PIN_JOY_CENTER)){
 		center_pressed=1;
 	}else if(GPIO_PinRead(PORT_JOY, PIN_JOY_UP)){
@@ -44,7 +62,7 @@ void read_joy(){
 			
 }
 
-//-----------------------LEDS---------------------------------------------
+//---------------------------------------------------------- LEDS ----------------------------------------------------------
 void initPin_LED(uint32_t port_number, uint32_t pin_number)
 {
 	// configura el pin como GPIO de salida con resistencia de pulldown
@@ -60,7 +78,24 @@ void display_leds(uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4){
 	GPIO_PinWrite(PORT_LED, PIN_LED4, led4);
 }
 
-//-----------------------------Timer--------------------------------------
+//---------------------------------------------------------- RGB ----------------------------------------------------------
+void initPin_RGB(uint32_t port_number, uint32_t pin_number)
+{
+	// configura el pin como GPIO de salida con resistencia de pulldown
+	GPIO_SetDir(port_number, pin_number, GPIO_DIR_OUTPUT);
+	PIN_Configure(port_number, pin_number, PIN_FUNC_0,
+	              PIN_PINMODE_PULLDOWN, PIN_PINMODE_NORMAL);
+}
+
+void display_rgb(uint8_t red, uint8_t green, uint8_t blue){
+	GPIO_PinWrite(PORT_RGB, PIN_RGB_RED, red);
+	GPIO_PinWrite(PORT_RGB, PIN_RGB_GREEN, green);
+	GPIO_PinWrite(PORT_RGB, PIN_RGB_BLUE, blue);
+}
+
+
+
+//---------------------------------------------------------- TIMER ----------------------------------------------------------
 void init_timer(int maxCount){
 	LPC_TIM0->MCR |= 1 << 0; 	 //genera interrupciones
 	LPC_TIM0->MCR |= 1 << 1; 	 //reinicia el contador cuando llegue a su valor maximo
@@ -69,15 +104,7 @@ void init_timer(int maxCount){
 	NVIC_EnableIRQ(TIMER0_IRQn); //activa las interrupciones
 	LPC_TIM0->TCR |= 1 << 0;	 //activa el contador	
 }
-
-
-void stop_timer(void){
-}
-
-void resume_timer(void){
-}
-
-//-----------------------------ADC----------------------------------------
+//---------------------------------------------------------- ADC ----------------------------------------------------------
 void init_ADC(void){
 	//activa el ADC
 	LPC_SC->PCONP |= (1 << 12);
@@ -123,6 +150,9 @@ uint8_t read_pot(void){
 	//pot2_read=read_ADC(CANAL2,CANAL1); solo se usa un potenciometro
 }
 
+
+//---------------------------------------------------------- START ----------------------------------------------------------
+
 void start(void){
 
 	// Initialize system
@@ -154,5 +184,11 @@ void start(void){
 	initPin_LED(PORT_LED, PIN_LED1);
 	initPin_LED(PORT_LED, PIN_LED2);
 	initPin_LED(PORT_LED, PIN_LED3);
-	initPin_LED(PORT_LED, PIN_LED4);	
+	initPin_LED(PORT_LED, PIN_LED4);
+	
+	//inicializa el rgb
+	initPin_RGB(PORT_RGB, PIN_RGB_RED);
+	initPin_RGB(PORT_RGB, PIN_RGB_GREEN);
+	initPin_RGB(PORT_RGB, PIN_RGB_BLUE);
+	display_rgb(RGB_OFF,RGB_OFF,RGB_OFF); //apaga el rgb al inicio
 }

@@ -1,7 +1,15 @@
 #include "entity.h"
 #include "structure.h"
 
-entity entities[MAX_ENTITIES];
+enemy_t enemies[MAX_ENTITIES];
+healthpack_t healthpacks[MAX_ENTITIES];
+fireball_t fireballs[MAX_ENTITIES];
+
+uint8_t numEnemies;
+uint8_t numHealthpacks;
+uint8_t numFireballs = 0;
+uint8_t killCount=0;
+
 player j1;
 
 //---------------------------------------------------------- JUGADOR ----------------------------------------------------------
@@ -10,15 +18,16 @@ player j1;
 player set_player(float x, float y){
 	player j;
 	j.pos = set_coords(x,y);
-	j.health=100;
+	j.health=HEALTH;
 	j.angle=0;
+    j.timer=0; // Timer para evitar ataques continuos
 	return j;
 }
 
 //actualiza la posicion del jugador en base a la entrada del joystick
 //el jugador se mueve en la direccion de la mirada (el angulo cambia con el potenciómetro)
 void move_player(){
-	coords newPos = j1.pos;
+	volatile coords newPos = j1.pos;
 	coords pDir = set_coords(cos(j1.angle),sin(j1.angle));
 	coords pDir90 = set_coords(-pDir.y,pDir.x); // = set_coords(cos(j1.angle+PIHALPH),sin(j1.angle+PIHALPH))
 	
@@ -41,13 +50,14 @@ void move_player(){
 	}
 	
 	//solo se actualiza la posicion si no ha habido colision
-	if(!colission(newPos))
+	if(colission(newPos) != 1)
 		j1.pos=newPos;
+	volatile coords a = j1.pos;
 }
 
 //se muestra la salud del jugador en los 4 leds
 void display_health(){
-    uint8_t led1 = (j1.health >= 25) ? ON : OFF;
+    uint8_t led1 = (j1.health > 0) ? ON : OFF;
     uint8_t led2 = (j1.health >= 50) ? ON : OFF;
     uint8_t led3 = (j1.health >= 75) ? ON : OFF;
     uint8_t led4 = (j1.health >= 100) ? ON : OFF;
@@ -56,124 +66,235 @@ void display_health(){
 
 //actualizacion del estado del jugador
 void update_player(void){
+    if(j1.health < 0)
+        j1.health = 0; //asegura que la salud no sea negativa
 
-    display_health(); // Actualiza la visualización de salud
+    display_health(); //actualiza la visualización de salud
+    //ADC, ajustar el angulo del jugador a un valor entre 1 y 2pi
+	if(read_pot())
+        j1.angle=(pot1_read*PI2)/MAX_POT_VALUE;
 
-    if(j1.health == 0) 
-        // El jugador ha muerto, manejar la lógica de muerte aquí
-        return;
-
-    move_player(); // Mueve al jugador según la entrada del joystick
+    move_player(); //mueve al jugador según la entrada del joystick
 }
 
 
-//---------------------------------------------------------- ENTIDADES ----------------------------------------------------------
+//---------------------------------------------------------- ENTIDADES: Estructuras ----------------------------------------------------------
 
-//en esta seccion se definen las funciones para crear y actualizar las entidades del juego, ya sean enemigos o healthpacks.
+//las distancias siempre se dejan a 0 al inicializar porque se calculan cada vez q se actualizan las entidades
 
-//se define la entidad en una posicion, con 100 de vida, estado idle y el tipo de entidad que se le pase como argumento
-entity set_entity(float x, float y, entityType_t type){
-    entity e;
-    e.pos = set_coords(x,y);
-    e.health=100;
-    e.state=ENTITY_STATE_IDLE;
-    e.type=type;
+//estructura del enemigo
+enemy_t set_enemy(float x, float y){
+    enemy_t e;
+    e.base.pos = set_coords(x,y); // Posición inicial del enemigo
+    e.base.health = 100;
+    e.base.dist = 0;
+    e.spawned = 1;
+    e.state = ENEMY_STATE_IDLE;
+    e.timer = 5; // Timer para evitar ataques continuos
+    e.spriteIndex = 1; // Indice del sprite del enemigo
+    
+    numEnemies++; // Incrementar el contador de enemigos
+    if(numEnemies > MAX_ENTITIES) numEnemies = 0;
     return e;
 }
 
-void idle_entity(entity *e){
-    coords newPos=e->pos;
+//estructura del healthpack
+healthpack_t set_healthpack(float x, float y){
+    healthpack_t h;
+    h.base.pos = set_coords(x,y); // Posición inicial del healthpack
+    h.base.health = 1; //vida del healthpack, 1 para que se destruya al tocar al jugadro
+    h.base.dist = 0; //distancia inicial
+    h.spawned = 1;
+    h.health_amount = 50; //cantidad de vida que otorga al jugador
 
-    newPos.x += e->pos.x + ((rand() % 3) - 1) * ENEMY_SPEED; // Movimiento aleatorio en x
-    newPos.y += e->pos.y + ((rand() % 3) - 1) * ENEMY_SPEED; // Movimiento aleatorio en y
-
-    if(!colission(newPos))
-        e->pos = newPos;
+    numHealthpacks++; //incrementar el contador de healthpacks
+    if(numHealthpacks > MAX_ENTITIES) numHealthpacks = 0;
+    return h;
 }
 
-//implementar pathfinding!!!!!
-void move_entity(entity *e,coords target,float dist){
-    coords newPos = e->pos;
-    coords dir = set_coords(target.x - e->pos.x, target.y - e->pos.y);
+//estructura del fireball
+fireball_t set_fireball(coords pos){
+    fireball_t f;
+    f.base.pos = pos;
+    f.base.health = 1; //vida del fireball, 1 para que se destruya al impactar
+    f.base.dist = 0; //distancia inicial
 
-    if (dist > 0) {
-        newPos.x += (ENEMY_SPEED * dir.x) / dist; // Normalizar la dirección
-        newPos.y += (ENEMY_SPEED * dir.y) / dist; // Normalizar la dirección
+    coords pDir = set_coords(j1.pos.x - f.base.pos.x, j1.pos.y - f.base.pos.y); //dirección hacia el jugador
+    float magnitude = sqrt(pDir.x * pDir.x + pDir.y * pDir.y); // Magnitud del vector dirección
+    if(magnitude > 0){
+        f.direction.x = pDir.x / magnitude; // Normaliza la dirección
+        f.direction.y = pDir.y / magnitude; // Normaliza la dirección
+    } 
+
+    numFireballs++; // Incrementar el contador de fireballs
+    if(numFireballs > MAX_ENTITIES) numFireballs = 0;
+    return f;
+}
+
+//---------------------------------------------------------- ENTIDADES: Movimiento ----------------------------------------------------------
+
+void move_enemy(enemy_t *e){
+    coords pDir = set_coords(j1.pos.x - e->base.pos.x, j1.pos.y - e->base.pos.y); // Dirección hacia el jugador
+    coords newPos = e->base.pos;
+    
+    // Mueve al enemigo en la dirección del jugador
+    if(e->base.dist > 0){
+        newPos.x += ENEMY_SPEED * pDir.x/e->base.dist; // Normaliza la dirección
+        newPos.y += ENEMY_SPEED * pDir.y/e->base.dist; // Normaliza la dirección
     }
 
-    if (!colission(newPos))
-        e->pos = newPos;
+    // Solo se actualiza la posición si no hay colisión
+    if(colission(newPos) != WALL)
+        e->base.pos = newPos;
 }
 
-void update_entity(entity *e){
-    float dist = distance(e->pos, j1.pos);
+void update_enemy(enemy_t *e){
+    if(e->state == ENEMY_STATE_INACTIVE) return; // Si el enemigo ha despawneado, no hacer nada
+    e->base.dist = distance2(e->base.pos,j1.pos); // Actualiza la distancia al jugador
+    if(e->base.dist>RENDER_DISTANCE) return; // Si la entidad está inactiva o supera la distancia de renderizado, no hacer nada
 
-    if(dist > RENDER_DISTANCE)
-        return; // No se actualiza si no se ha renderizado
-
-    switch(e->type){
-        // SI ES UN ENEMIGO
-        case ENTITY_TYPE_ENEMY:
-
-            //si su salud es 0 está muerto
-            if(e->health == 0){
-                e->state = ENTITY_STATE_DEAD;
-                return;
-            }
-            //se observa el estado del enemigo
-            switch (e->state) {
-                //si está quieto y dentro del rango de detección, pasa a moverse
-                case ENTITY_STATE_IDLE:
-                    if (dist < DETECTION_RADIUS){ 
-                        e->state = ENTITY_STATE_MOVING;
-                    }else{
-                        idle_entity(e);
-                    }
-                    break;
-                //si se está moviendo y el jugador está dentro del rango de ataque, pasa a atacar
-                //si el jugador está fuera del rango de ataque, pasa a idle
-                case ENTITY_STATE_MOVING:
-                    if (dist < ATTACK_RADIUS) {
-                        e->state = ENTITY_STATE_ATTACKING;
-                    }else if(dist>DETECTION_RADIUS){
-                        e->state = ENTITY_STATE_IDLE;
-                    }else {
-                        move_entity(e,j1.pos,dist);
-                    }
-                    break;
-                break;
-                
-                //si está atacando y el jugador está fuera del rango de ataque, pasa a moverse
-                //si el jugador está dentro del rango de ataque, le quita vida al jugador
-                case ENTITY_STATE_ATTACKING:
-                    if (dist > ATTACK_RADIUS) {
-                        e->state = ENTITY_STATE_MOVING;
-                    } else {
-                        j1.health -= ATTACK;
-                    }
-                    break;
-
-                case ENTITY_STATE_DEAD:
-                    return; // No se actualiza el estado de la entidad muerta
-                break;
+    switch(e->state){
+        case ENEMY_STATE_IDLE:
+            e->spriteIndex = 1; // Cambia el sprite a idle
+            if(e->base.dist < DETECTION_RADIUS){
+                e->state = ENEMY_STATE_MOVING;
+                e->timer = 10;
             }
         break;
-        // SI ES UN HEALTHPACK
-        case ENTITY_TYPE_HEALTH:
-            if (dist < ATTACK_RADIUS) {
-                j1.health += HEALTH;
-                e->health = 0; // El healthpack se "consume"
-                e->state = ENTITY_STATE_DEAD; // Cambia el estado a muerto para que no se actualice más, como si fuese un enemigo muerto
 
-                if(e->state == ENTITY_STATE_DEAD){
-                    return;
-                }
-            }
+        case ENEMY_STATE_MOVING:
+            //Asigna el sprite dependiendo del timer
+            if(e->timer == 0)
+                e->timer = 10; //timer para manejar el sprite
+						e->spriteIndex = e->timer%2 + 1; // Cambia el sprite entre 1 y 2
+
+            //asigna el proximo estado del enemigo
+            if(e->base.dist > DETECTION_RADIUS){
+                e->state = ENEMY_STATE_IDLE;
+            }else if(e->base.dist < RANGED_ATTACK_RADIUS)
+                e->timer = ENEMY_RANGED_TIMER;
+                e->state = ENEMY_STATE_RANGED_ATTACKING;
+
+            move_enemy(e); // Mueve al enemigo hacia el jugador
         break;
+
+        case ENEMY_STATE_RANGED_ATTACKING:
+            if(e->base.dist > RANGED_ATTACK_RADIUS){
+                e->state = ENEMY_STATE_MOVING;
+                e->timer = 10;
+            }else if(e->base.dist < ATTACK_RADIUS){
+								e->timer = ENEMY_MELEE_TIMER; // Timer para evitar ataques continuos
+                e->state = ENEMY_STATE_ATTACKING;
+            }else if(e->timer == 0){
+                e->timer = ENEMY_RANGED_TIMER; // Timer para evitar ataques continuos
+                fireballs[numFireballs] = set_fireball(e->base.pos); // Crea un fireball en la posición del enemigo
+                e->spriteIndex = 2; // Cambia el sprite a disparando
+            }else
+                e->spriteIndex = 1; // Cambia el sprite a idle
+        break;
+
+        case ENEMY_STATE_ATTACKING:
+            if(e->base.dist > ATTACK_RADIUS){
+                e->state = ENEMY_STATE_RANGED_ATTACKING;
+                e->timer = ENEMY_RANGED_TIMER;
+            }else if(e->timer == 0){
+                e->timer = ENEMY_MELEE_TIMER; // Timer para evitar ataques continuos
+                e->spriteIndex = 2; // Cambia el sprite a atacando
+                if(j1.health > 0)
+                    j1.health -= ATTACK; // Resta vida al jugador
+            }else
+                e->spriteIndex = 1; // Cambia el sprite a idle
+        break;
+
+        case ENEMY_STATE_HIT:
+            e->spriteIndex = 3; // Cambia el sprite a golpeado
+
+            if(e->base.health == 0){ // Si la salud del enemigo es 0, cambiar a estado muerto
+                e->state = ENEMY_STATE_DEAD;
+                e->spriteIndex = 4; // Cambia el sprite a muerto
+                e->timer = 255; //Timer hasta que la entidad pase a inactiva
+                killCount++; // Incrementa el contador de enemigos muertos
+            }else if(e->timer == 0)
+                e->state = ENEMY_STATE_IDLE; // Regresa al estado idle después de ser golpeado
+        break;
+
+        case ENEMY_STATE_DEAD:
+            if(e->timer == 0)
+                e->state = ENEMY_STATE_INACTIVE; // Desactivar el enemigo después de despawnear
+        break;
+    }
+    e->timer--; // Decrementa el timer del enemigo
+}
+
+void updateHealthpack(healthpack_t *h){
+    if(h->base.health == 0) return; // Si el healthpack ha sido recogido, no hacer nada
+    h->base.dist = distance2(h->base.pos,j1.pos); // Actualiza la distancia al jugador
+    if(h->base.dist>RENDER_DISTANCE) return; // Si el healthpack está fuera de rango, no hacer nada
+
+    if( h->base.dist < PICK_RADIUS && j1.health < HEALTH){
+        j1.health =min(HEALTH,j1.health+h->health_amount); // Aumenta la vida del jugado
+        h->base.health = 0; // Marcar el healthpack como recogido
     }
 }
 
+void move_fireball(fireball_t *f){
+    coords newPos = f->base.pos;
+    if(f->base.dist > 0){
+        newPos.x += FIREBALL_SPEED * f->direction.x; 
+        newPos.y += FIREBALL_SPEED * f->direction.y; 
+    }
+
+    if(colission(newPos)==WALL){
+        f->base.health = 0; // Matar el fireball si colisiona con una pared
+    }else
+        f->base.pos = newPos; // Actualiza la posición del fireball si no hay colisión
+}
+
+void update_fireball(fireball_t *f){
+    if(f->base.health == 0) return; // Si el fireball ha sido destruido, no hacer nada
+    f->base.dist = distance2(f->base.pos,j1.pos); // Actualiza la distancia al jugador
+    if(f->base.dist < PICK_RADIUS){
+        if(j1.health > 0)
+            j1.health -= FIREBALL_DAMAGE; // Resta vida al jugador
+        f->base.health = 0; // Matar el fireball
+    }else
+        move_fireball(f); // Mueve el fireball hacia el objetivo (jugador)
+}
+
+//---------------------------------------------Funciones de spawn y update de entidades--------------------------------------------------
+
+//se encarga de inicializar al jugador
+void spawn_entities(void){
+    numEnemies = 0; // Inicializa el contador de enemigos
+    numHealthpacks = 0; // Inicializa el contador de healthpacks
+    for(uint8_t i=0; i<MAP_HEIGHT; i++)
+        for(uint8_t j=0; j<MAP_WIDTH; j++)
+            switch(map[i][j]){
+                case PLAYER:
+                    j1 = set_player(j,i); // Inicializa el jugador en la posición del mapa
+                break;
+
+                case ENEMY:
+                    enemies[numEnemies] = set_enemy(j,i); // Inicializa el enemigo en la posición del mapa
+                break;
+
+                case HEALTHPACK:
+                    healthpacks[numHealthpacks] = set_healthpack(j,i); // Inicializa el healthpack en la posición del mapa
+                break;
+            }
+}
+
+//se encarga de actualizar el estado de todas las entidades una vez por interrupcion
 void update_entities(void){
-    for (uint8_t i = 0; i < MAX_ENTITIES; i++)
-        update_entity(&entities[i]);
+    update_player(); // Actualiza el estado del jugador
+
+    //actualiza el estado de los enemigos, healthpacks y fireballs
+    for(uint8_t i=0; i < numEnemies; i++)
+        update_enemy(&enemies[i]);
+
+    for(uint8_t i=0; i < numHealthpacks; i++)
+        updateHealthpack(&healthpacks[i]);
+
+    for(uint8_t i=0; i < numFireballs; i++)
+        update_fireball(&fireballs[i]);
 }

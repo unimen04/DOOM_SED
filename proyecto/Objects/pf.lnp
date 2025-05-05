@@ -6,6 +6,7 @@
 ".\objects\main.o"
 ".\objects\spi_lcd.o"
 ".\objects\structure.o"
+".\objects\entity.o"
 ".\objects\ssp_lpc17xx.o"
 ".\objects\gpdma_lpc17xx.o"
 ".\objects\gpio_lpc17xx.o"

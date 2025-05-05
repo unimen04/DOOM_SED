@@ -14,7 +14,7 @@
 #define CANAL1 4
 #define CANAL2 5
 #define MAX_POT_VALUE 4095 //valor maximo del potenciometro
-#define DIFF 60 //variacion minima para que el potenciometro cambie de valor
+#define DIFF 70 //variacion minima para que el potenciometro cambie de valor
 
 #define SBIT_BURST      16u
 #define SBIT_START      24u
@@ -44,6 +44,21 @@
 #define ON 1
 #define OFF 0
 
+// RGB
+#define PORT_RGB 2
+#define PIN_RGB_RED 3
+#define PIN_RGB_GREEN 2
+#define PIN_RGB_BLUE 1
+#define RGB_ON 0
+#define RGB_OFF 1
+#define FLASH_TIME 5 
+
+typedef enum {
+    RED,
+    GREEN,
+    BLUE,
+} RGB_t;
+
 
 //LCD
 extern ARM_DRIVER_SPI Driver_SPI1;
@@ -52,7 +67,7 @@ extern ARM_DRIVER_SPI* spiDrv1;
 extern uint8_t buffer[LCD_MEM_SIZE];
 
 //Joysticks
-extern uint8_t center_pressed;
+extern uint8_t center_registered;
 extern uint8_t up_pressed;
 extern uint8_t down_pressed;
 extern uint8_t right_pressed;
@@ -65,6 +80,7 @@ extern uint32_t pot2_read;
 //Timer
 extern uint8_t interrupt;
 
+void read_center(void);
 void read_joy(void);
 
 void init_timer(int maxCount);
@@ -76,6 +92,9 @@ void resume_timer(void);
 uint8_t read_pot(void);
 
 void display_leds(uint8_t led1, uint8_t led2, uint8_t led3, uint8_t led4);
+
+void display_rgb(uint8_t red, uint8_t green, uint8_t blue);
+void flash_rgb(RGB_t color);
 
 void start(void);
 

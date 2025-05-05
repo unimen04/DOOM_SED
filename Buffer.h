@@ -7,6 +7,9 @@
 
 #include <stdint.h>
 
+//initialize zbuffer
+void ZBuffer_Reset(uint8_t *zbuffer);
+
 // Set all positions in buffer to zero
 void Buffer_Reset(uint8_t* buffer);
 
@@ -33,5 +36,11 @@ void Buffer_DrawNum(uint8_t* buffer, int num, uint8_t x, uint8_t y);
 void Buffer_DrawLetter(uint8_t* buffer, char letter, uint8_t x, uint8_t y);
 
 void Buffer_DrawWord(uint8_t* buffer, char *texto, uint8_t x, uint8_t y);
+
+void Buffer_DrawMenu(uint8_t *buffer, const uint8_t *sprite, uint8_t width, uint8_t height, uint8_t x, uint8_t y);
+
+void Buffer_DrawSprite(uint8_t *buffer, uint8_t *zbuffer, const uint8_t *bitmap,
+	const uint8_t *mask, uint8_t width, uint8_t height,
+	uint8_t x, uint8_t y, float distance);
 
 #endif /* BUFFER_H_ */
